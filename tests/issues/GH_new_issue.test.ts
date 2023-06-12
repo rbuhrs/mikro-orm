@@ -1,4 +1,4 @@
-import { Entity, JsonType, MikroORM, PrimaryKey, Property, wrap } from '@mikro-orm/core';
+import { Entity, JsonType, MikroORM, PrimaryKey, Property, Utils, wrap } from '@mikro-orm/core';
 import { BetterSqliteDriver } from '@mikro-orm/better-sqlite';
 
 type UnitOfMeasure = 'pcs' | 'gram';
@@ -136,7 +136,7 @@ test(`GH issue updating nested props`, async () => {
         },
         // when passing undefined object the test will fail, the cooking object will not be updated
         // only omitting the object or passing null works
-        // Microwave: undefined,
+        Microwave: undefined,
       },
       // test only succeeds when providing null, or omitting the next prop
       notes: undefined,
@@ -149,6 +149,14 @@ test(`GH issue updating nested props`, async () => {
   const reloadedRecipe = await orm.em.fork().findOneOrFail(Recipe, 1);
   const finalRecipe = wrap(reloadedRecipe).toObject();
 
+  expect(reloadedRecipe.instructions.cooking).toMatchObject({
+    Oven: {
+      degrees: 200,
+      time: 12,
+    },
+  });
+
+  Utils.dropUndefinedProperties(updatedRecipe);
   expect(finalRecipe).toMatchObject(updatedRecipe);
 });
 
