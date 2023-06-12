@@ -112,10 +112,10 @@ export function compareBooleans(a: unknown, b: unknown): boolean {
   return a === b;
 }
 
-export function compareBuffers(a: Buffer, b: Buffer): boolean {
-  const length = a.length;
+export function compareBuffers(a: ArrayBufferView, b: ArrayBufferView): boolean {
+  const length = a.byteLength;
 
-  if (length !== b.length) {
+  if (length !== b.byteLength) {
     return false;
   }
 
@@ -142,7 +142,7 @@ export function equals(a: any, b: any): boolean {
     }
 
     if (ArrayBuffer.isView(a) && ArrayBuffer.isView(b)) {
-      return compareBuffers(a as Buffer, b as Buffer);
+      return compareBuffers(a, b);
     }
 
     return compareObjects(a, b);
@@ -311,6 +311,20 @@ export class Utils {
    * Merges all sources into the target recursively.
    */
   static merge(target: any, ...sources: any[]): any {
+    return Utils._merge(target, sources, false);
+  }
+
+  /**
+   * Merges all sources into the target recursively. Ignores `undefined` values.
+   */
+  static mergeConfig(target: any, ...sources: any[]): any {
+    return Utils._merge(target, sources, true);
+  }
+
+  /**
+   * Merges all sources into the target recursively.
+   */
+  private static _merge(target: any, sources: any[], ignoreUndefined: boolean): any {
     if (!sources.length) {
       return target;
     }
@@ -319,7 +333,7 @@ export class Utils {
 
     if (Utils.isObject(target) && Utils.isPlainObject(source)) {
       Object.entries(source).forEach(([key, value]) => {
-        if (typeof value === 'undefined') {
+        if (ignoreUndefined && typeof value === 'undefined') {
           return;
         }
 
@@ -333,14 +347,14 @@ export class Utils {
             Object.assign(target, { [key]: {} });
           }
 
-          Utils.merge(target[key], value);
+          Utils._merge(target[key], [value], ignoreUndefined);
         } else {
           Object.assign(target, { [key]: value });
         }
       });
     }
 
-    return Utils.merge(target, ...sources);
+    return Utils._merge(target, sources, ignoreUndefined);
   }
 
   static getRootEntity(metadata: IMetadataStorage, meta: EntityMetadata): EntityMetadata {

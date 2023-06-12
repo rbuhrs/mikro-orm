@@ -33,6 +33,7 @@ import type {
   GetRepository,
   IHydrator,
   Loaded,
+  MaybePromise,
   Populate,
   PopulateOptions,
   Primary,
@@ -239,22 +240,22 @@ export class EntityManager<D extends IDatabaseDriver = IDatabaseDriver> {
   /**
    * Registers global filter to this entity manager. Global filters are enabled by default (unless disabled via last parameter).
    */
-  addFilter<T1>(name: string, cond: FilterQuery<T1> | ((args: Dictionary) => FilterQuery<T1>), entityName?: EntityName<T1> | [EntityName<T1>], enabled?: boolean): void;
+  addFilter<T1>(name: string, cond: FilterQuery<T1> | ((args: Dictionary) => MaybePromise<FilterQuery<T1>>), entityName?: EntityName<T1> | [EntityName<T1>], enabled?: boolean): void;
 
   /**
    * Registers global filter to this entity manager. Global filters are enabled by default (unless disabled via last parameter).
    */
-  addFilter<T1, T2>(name: string, cond: FilterQuery<T1 | T2> | ((args: Dictionary) => FilterQuery<T1 | T2>), entityName?: [EntityName<T1>, EntityName<T2>], enabled?: boolean): void;
+  addFilter<T1, T2>(name: string, cond: FilterQuery<T1 | T2> | ((args: Dictionary) => MaybePromise<FilterQuery<T1 | T2>>), entityName?: [EntityName<T1>, EntityName<T2>], enabled?: boolean): void;
 
   /**
    * Registers global filter to this entity manager. Global filters are enabled by default (unless disabled via last parameter).
    */
-  addFilter<T1, T2, T3>(name: string, cond: FilterQuery<T1 | T2 | T3> | ((args: Dictionary) => FilterQuery<T1 | T2 | T3>), entityName?: [EntityName<T1>, EntityName<T2>, EntityName<T3>], enabled?: boolean): void;
+  addFilter<T1, T2, T3>(name: string, cond: FilterQuery<T1 | T2 | T3> | ((args: Dictionary) => MaybePromise<FilterQuery<T1 | T2 | T3>>), entityName?: [EntityName<T1>, EntityName<T2>, EntityName<T3>], enabled?: boolean): void;
 
   /**
    * Registers global filter to this entity manager. Global filters are enabled by default (unless disabled via last parameter).
    */
-  addFilter(name: string, cond: Dictionary | ((args: Dictionary) => FilterQuery<AnyEntity>), entityName?: EntityName<AnyEntity> | EntityName<AnyEntity>[], enabled = true): void {
+  addFilter(name: string, cond: Dictionary | ((args: Dictionary) => MaybePromise<FilterQuery<AnyEntity>>), entityName?: EntityName<AnyEntity> | EntityName<AnyEntity>[], enabled = true): void {
     const options: FilterDef = { name, cond, default: enabled };
 
     if (entityName) {
@@ -590,7 +591,7 @@ export class EntityManager<D extends IDatabaseDriver = IDatabaseDriver> {
         where = { [unique[propIndex]]: data[unique[propIndex]] } as FilterQuery<Entity>;
       } else if (meta.uniques.length > 0) {
         for (const u of meta.uniques) {
-          if (Utils.asArray(u.properties).every(p => data![p])) {
+          if (Utils.asArray(u.properties).every(p => data![p] != null)) {
             where = Utils.asArray(u.properties).reduce((o, key) => {
               o[key] = data![key];
               return o;
@@ -726,16 +727,16 @@ export class EntityManager<D extends IDatabaseDriver = IDatabaseDriver> {
       }
 
       const unique = meta.props.filter(p => p.unique).map(p => p.name);
-      propIndex = unique.findIndex(p => row![p] != null);
+      propIndex = unique.findIndex(p => row[p] != null);
 
       if (where == null) {
         if (propIndex >= 0) {
           where = { [unique[propIndex]]: row[unique[propIndex]] } as FilterQuery<Entity>;
         } else if (meta.uniques.length > 0) {
           for (const u of meta.uniques) {
-            if (Utils.asArray(u.properties).every(p => row![p])) {
+            if (Utils.asArray(u.properties).every(p => row[p] != null)) {
               where = Utils.asArray(u.properties).reduce((o, key) => {
-                o[key] = row![key];
+                o[key] = row[key];
                 return o;
               }, {} as FilterQuery<Entity>);
               break;
@@ -1505,9 +1506,24 @@ export class EntityManager<D extends IDatabaseDriver = IDatabaseDriver> {
   }
 
   /**
-   * Gets the MetadataStorage.
+   * Gets the `MetadataStorage`.
    */
-  getMetadata(): MetadataStorage {
+  getMetadata(): MetadataStorage;
+
+  /**
+   * Gets the `EntityMetadata` instance when provided with the `entityName` parameter.
+   */
+  getMetadata<Entity extends object>(entityName: EntityName<Entity>): EntityMetadata<Entity>;
+
+  /**
+   * Gets the `MetadataStorage` (without parameters) or `EntityMetadata` instance when provided with the `entityName` parameter.
+   */
+  getMetadata<Entity extends object>(entityName?: EntityName<Entity>): EntityMetadata<Entity> | MetadataStorage {
+    if (entityName) {
+      entityName = Utils.className(entityName);
+      return this.metadata.get(entityName);
+    }
+
     return this.metadata;
   }
 
