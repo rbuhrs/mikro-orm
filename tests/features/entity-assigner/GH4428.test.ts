@@ -133,7 +133,9 @@ test(`GH 4428: issue updating nested props`, async () => {
           degrees: 200,
           time: 12,
         },
-        Microwave: undefined,
+        // When we DO supply this Microwave prop as undefined it is correctly removed and all tests pass
+        // When we do NOT supply Microwave prop it is not removed from the cooking object and toEqual test fails
+        // Microwave: undefined,
       },
       // test only succeeds when providing null, or omitting the next prop
       notes: undefined,
@@ -147,7 +149,10 @@ test(`GH 4428: issue updating nested props`, async () => {
   const finalRecipe = wrap(reloadedRecipe).toObject();
 
   Utils.dropUndefinedProperties(updatedRecipe);
+  // note toMatchObject passes as it checks that an object matches a subset of the properties of another object
   expect(finalRecipe).toMatchObject(updatedRecipe);
+  // toEqual fails because the object still contains the Microwave property and thus objects are not equal
+  expect(finalRecipe).toEqual(updatedRecipe);
 });
 
 test(`GH 4428: issue updating nested props directly`, async () => {
@@ -234,6 +239,12 @@ test(`GH 4428: issue updating nested props directly`, async () => {
     uom: 'gram',
   };
   e1.instructions.notes = undefined;
+  e1.instructions.cooking = {
+    Oven : {
+      degrees: 200,
+      time: 12,
+    },
+  };
 
   await orm.em.flush();
 
@@ -241,4 +252,5 @@ test(`GH 4428: issue updating nested props directly`, async () => {
   const finalRecipe = wrap(reloadedRecipe).toObject();
 
   expect(finalRecipe).toMatchObject(updatedRecipe);
+  expect(finalRecipe).toEqual(updatedRecipe);
 });
